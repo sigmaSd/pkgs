@@ -15,21 +15,31 @@ sha256sums=('5b72f434160dce871c902218e8bfd3053ce54a028ec9b2a725356c8326e7d8d8'
             'bdd3140b737646d38e801d7cfa2092e47126b968e32ffe32250c9046ddc76a6a')
 
 prepare() {
+    # Build flatpak-fix dylib
     rustc --crate-type dylib fix_flatpak.rs
 }
 
 package() {
+  # Extract flatpak
   ostree init --repo=shortwave_repo
   ostree --repo=shortwave_repo config set core.min-free-space-percent 0
   ostree static-delta apply-offline --repo=shortwave_repo shortwave-dev.flatpak
   ostree --repo=shortwave_repo checkout -U c6d9bca966412dc84cf01f6bbceffb7964b401e880d4387599db32111dd4c3c6 shortwave_build
 
-  mkdir -p "$pkgdir/usr/share/shortwave"
-  install -Dm755 "$srcdir/shortwave_build/files/bin/shortwave" "$pkgdir/usr/share/shortwave"
-  install -Dm755 "$srcdir/shortwave_build/files/share/shortwave/de.haeckerfelix.Shortwave.Devel.gresource" "$pkgdir/usr/share/shortwave"
-  install -Dm755 "$srcdir/libfix_flatpak.so" "$pkgdir/usr/share/shortwave/libfix_flatpak.so"
+
+  # Entry point
+  install -Dm755 "$srcdir/shortwave_build/files/bin/shortwave" "$pkgdir/usr/share/shortwave/shortwave"
+
+  # Extra (desktop,icons)
+  rm -rf "$srcdir/shortwave_build/export/share/dbus-1"
+  sed -i "s/DBusActivatable=true//" "$srcdir/shortwave_build/export/share/applications/de.haeckerfelix.Shortwave.Devel.desktop"
+  cp -r "$srcdir/shortwave_build/export/share/" "$pkgdir/usr/"
+
+  # Actual program
+  install -m755 "$srcdir/shortwave_build/files/share/shortwave/de.haeckerfelix.Shortwave.Devel.gresource" "$pkgdir/usr/share/shortwave/"
+  install -m755 "$srcdir/libfix_flatpak.so" "$pkgdir/usr/share/shortwave/"
   install -Dm755 "$srcdir/shortwave" "$pkgdir/usr/bin/shortwave"
-  mkdir -p "$pkgdir/usr/share/glib-2.0/schemas/"
-  install -Dm755 "$srcdir/shortwave_build/files/share/glib-2.0/schemas/de.haeckerfelix.Shortwave.gschema.xml" "$pkgdir/usr/share/glib-2.0/schemas"
-  glib-compile-schemas "$pkgdir/usr/share/glib-2.0/schemas/"
+
+  # Gschema
+  install -Dm755 "$srcdir/shortwave_build/files/share/glib-2.0/schemas/de.haeckerfelix.Shortwave.gschema.xml" "$pkgdir/usr/share/glib-2.0/schemas/de.haeckerfelix.Shortwave.gschema.xml"
 }
